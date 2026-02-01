@@ -1,0 +1,19 @@
+{
+  "name": "candelacharts-odds",
+  "version": "1.0.0",
+  "module": "src/index.ts",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  },
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "strategy": "bun run src/strategies/strategy.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "kalshi-typescript": "3.5.0"
+  }
+}
