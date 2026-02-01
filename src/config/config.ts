@@ -14,8 +14,8 @@ const ASSET_MAPPING: Record<string, string> = {
 const seriesTickersEnv = process.env.KALSHI_SERIES_TICKERS || "KXBTC15M";
 const seriesTickers = seriesTickersEnv
 	.split(",")
-	.map((s) => s.trim())
-	.filter((s) => s.length > 0);
+	.map((s: string) => s.trim())
+	.filter((s: string) => s.length > 0);
 
 function getBinanceSymbol(kalshiSeries: string): string {
 	const mapped = ASSET_MAPPING[kalshiSeries.toUpperCase()];
@@ -27,7 +27,7 @@ function getBinanceSymbol(kalshiSeries: string): string {
 }
 
 export const CONFIG = {
-	symbol: getBinanceSymbol(seriesTickers[0]), // Default to first ticker for backward compatibility
+	symbol: getBinanceSymbol(seriesTickers[0] ?? "KXBTC15M"), // Default to first ticker for backward compatibility
 	binanceBaseUrl: "https://api.binance.com",
 
 	pollIntervalMs: 1_000,

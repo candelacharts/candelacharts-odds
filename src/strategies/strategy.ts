@@ -14,7 +14,7 @@ async function main() {
 	console.log();
 
 	// Create a runner for each asset
-	const runners = seriesTickers.map((seriesTicker) => {
+	const runners = seriesTickers.map((seriesTicker: string) => {
 		const binanceSymbol = CONFIG.getBinanceSymbolForSeries(seriesTicker);
 		return new StrategyRunner(seriesTicker, binanceSymbol);
 	});
@@ -22,7 +22,7 @@ async function main() {
 	// Start all runners in parallel
 	console.log("⚡ Starting all runners...\n");
 	await Promise.all(
-		runners.map((runner) => runner.startPolling(5000))
+		runners.map((runner: StrategyRunner) => runner.startPolling(5000))
 	);
 }
 

@@ -3,8 +3,8 @@
  * Logs all orders to CSV files organized by ticker and timestamp
  */
 
-import { existsSync, readFileSync, writeFileSync, appendFileSync } from "fs";
-import { join } from "path";
+import { existsSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import { join } from "node:path";
 
 export interface OrderLogEntry {
 	timestamp: number;
@@ -125,43 +125,43 @@ export class OrderLogger {
 				return [];
 			}
 
-			const content = readFileSync(filePath, "utf-8");
-			const lines = content.split("\n").filter((line) => line.trim());
+		const content = readFileSync(filePath, "utf-8");
+		const lines = content.split("\n").filter((line: string) => line.trim());
 
-			// Skip header
-			const dataLines = lines.slice(1);
+		// Skip header
+		const dataLines = lines.slice(1);
 
-			return dataLines.map((line) => {
-				const parts = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g) || [];
-				const [
-					_date,
-					timestamp,
-					ticker,
-					side,
-					action,
-					quantity,
-					price,
-					orderId,
-					status,
-					totalCost,
-					fees,
-					strategy,
-					errorMessage,
-				] = parts.map((p) => p.replace(/^"|"$/g, "").trim());
+		return dataLines.map((line: string): OrderLogEntry => {
+			const parts = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g) || [];
+			const [
+				_date,
+				timestamp,
+				ticker,
+				side,
+				action,
+				quantity,
+				price,
+				orderId,
+				status,
+				totalCost,
+				fees,
+				strategy,
+				errorMessage,
+			] = parts.map((p: string) => p.replace(/^"|"$/g, "").trim());
 
-				return {
-					timestamp: Number.parseInt(timestamp, 10),
-					ticker,
-					side: side as "yes" | "no",
-					action: action as "buy" | "sell",
-					quantity: Number.parseInt(quantity, 10),
-					price: Number.parseFloat(price) * 100, // Convert back to cents
-					orderId: orderId || undefined,
-					status: status as "success" | "failed" | "pending",
-					totalCost: totalCost ? Number.parseFloat(totalCost) : undefined,
-					fees: fees ? Number.parseFloat(fees) : undefined,
-					strategy: strategy || undefined,
-					errorMessage: errorMessage || undefined,
+			return {
+				timestamp: Number.parseInt(timestamp ?? "0", 10),
+				ticker: ticker ?? "",
+				side: (side ?? "yes") as "yes" | "no",
+				action: (action ?? "buy") as "buy" | "sell",
+				quantity: Number.parseInt(quantity ?? "0", 10),
+				price: Number.parseFloat(price ?? "0") * 100, // Convert back to cents
+				orderId: orderId || undefined,
+				status: (status ?? "pending") as "success" | "failed" | "pending",
+				totalCost: totalCost ? Number.parseFloat(totalCost) : undefined,
+				fees: fees ? Number.parseFloat(fees) : undefined,
+				strategy: strategy || undefined,
+				errorMessage: errorMessage || undefined,
 				};
 			});
 		} catch (error) {

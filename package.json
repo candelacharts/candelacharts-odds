@@ -4,13 +4,16 @@
   "module": "src/index.ts",
   "devDependencies": {
     "@types/bun": "latest",
+    "@types/node": "^25.1.0",
     "typescript": "^5"
   },
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch src/index.ts",
-    "strategy": "bun run src/strategies/strategy.ts"
+    "strategy": "bun run src/strategies/strategy.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit"
   },
   "type": "module",
   "dependencies": {

@@ -47,7 +47,7 @@ export async function fetchKlines({
 	if (!res.ok) {
 		throw new Error(`Binance klines error: ${res.status} ${await res.text()}`);
 	}
-	const data = await res.json();
+	const data = await res.json() as any[][];
 
 	return data.map((k: any[]) => ({
 		openTime: Number(k[0]),
@@ -71,6 +71,6 @@ export async function fetchLastPrice(
 			`Binance last price error: ${res.status} ${await res.text()}`,
 		);
 	}
-	const data = await res.json();
+	const data = await res.json() as { price: string };
 	return toNumber(data.price);
 }

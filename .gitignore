@@ -1,0 +1,5 @@
+node_modules/
+keys/kalshi-private-key.pem
+tickers/*.csv
+.env
+.DS_Store

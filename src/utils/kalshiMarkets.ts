@@ -23,7 +23,7 @@ export function pickLatestActiveMarket(
 		})
 		.sort((a, b) => (a.closeMs ?? 0) - (b.closeMs ?? 0));
 
-	if (active.length) return active[0].m;
+	if (active.length) return active[0]?.m ?? null;
 
 	const upcoming = enriched
 		.filter((x) => {
@@ -32,7 +32,7 @@ export function pickLatestActiveMarket(
 		})
 		.sort((a, b) => (a.closeMs ?? 0) - (b.closeMs ?? 0));
 
-	return upcoming.length ? upcoming[0].m : null;
+	return upcoming.length ? upcoming[0]?.m ?? null : null;
 }
 
 export async function fetchLatestBitcoinMarket(

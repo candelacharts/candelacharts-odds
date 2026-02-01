@@ -292,31 +292,31 @@ export class StrategyRunner {
 	private async fetchKalshiCandlesticks(ticker: string) {
 		try {
 			// Extract series ticker from market ticker (e.g., KXBTC15M-26JAN311500-00 -> KXBTC15M)
-			const seriesMatch = ticker.match(/^([A-Z0-9]+)-/);
-			const seriesTicker = seriesMatch ? seriesMatch[1] : this.seriesTicker;
-			
-			// Get last 10 candles for pattern analysis
-			const endTs = Math.floor(Date.now() / 1000);
-			
-			// Determine period interval based on market type
-			// Valid values: 1 (1 minute), 60 (1 hour), 1440 (1 day)
-			const periodInterval = this.binanceInterval === "1h" 
-				? GetMarketCandlesticksPeriodIntervalEnum.NUMBER_60
-				: GetMarketCandlesticksPeriodIntervalEnum.NUMBER_1; // Use 1 minute for 15m markets
-			
-			const intervalSeconds = this.binanceInterval === "1h" ? 3600 : 900;
-			const startTs = endTs - (intervalSeconds * 10); // Get 10 periods of history
-			
-			const response = await kalshiService.getMarketCandlesticks(
-				seriesTicker,
-				ticker,
-				startTs,
-				endTs,
-				periodInterval,
-			);
-			
-			// Convert MarketCandlestick to our Candlestick format
-			const candlesticks = (response.candlesticks || []).map(candle => ({
+		const seriesMatch = ticker.match(/^([A-Z0-9]+)-/);
+		const seriesTicker = seriesMatch?.[1] ?? this.seriesTicker;
+		
+		// Get last 10 candles for pattern analysis
+		const endTs = Math.floor(Date.now() / 1000);
+		
+		// Determine period interval based on market type
+		// Valid values: 1 (1 minute), 60 (1 hour), 1440 (1 day)
+		const periodInterval = this.binanceInterval === "1h" 
+			? GetMarketCandlesticksPeriodIntervalEnum.NUMBER_60
+			: GetMarketCandlesticksPeriodIntervalEnum.NUMBER_1; // Use 1 minute for 15m markets
+		
+		const intervalSeconds = this.binanceInterval === "1h" ? 3600 : 900;
+		const startTs = endTs - (intervalSeconds * 10); // Get 10 periods of history
+		
+	const response = await kalshiService.getMarketCandlesticks(
+		seriesTicker,
+			ticker ?? "",
+			startTs,
+			endTs,
+			periodInterval,
+		);
+		
+		// Convert MarketCandlestick to our Candlestick format
+		const candlesticks = (response.candlesticks || []).map((candle: any) => ({
 				end_period_ts: candle.end_period_ts,
 				yes_bid: candle.yes_bid ? {
 					open: candle.yes_bid.open ?? 0,
