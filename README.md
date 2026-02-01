@@ -1,4 +1,4 @@
-# Candelacharts Odds X - Kalshi Arbitrage Bot
+# Candelacharts Odds - Kalshi Arbitrage Bot
 
 A high-performance arbitrage trading bot for Kalshi prediction markets, built with Bun and TypeScript.
 
@@ -36,6 +36,14 @@ KALSHI_SERIES_TICKERS=KXBTC15M
 PROFIT_TARGET_USD=20
 MAX_POSITIONS_PER_15MIN=3
 ```
+
+**Important**: Place your Kalshi private key file in the `keys/` directory. The bot will validate:
+- ✅ API Key ID is provided
+- ✅ Private key file exists and is readable
+- ✅ Private key is in valid PEM format
+- ✅ Private key is not corrupted or a placeholder
+
+If any validation fails, you'll see a clear error message explaining what needs to be fixed.
 
 ### 3. Run the Bot
 
@@ -194,6 +202,23 @@ bun run dev
 - `bun run start` - Run the main entry point
 - `bun run dev` - Run with auto-reload
 - `bun run strategy` - Run the arbitrage strategy
+- `bun run typecheck` - Run TypeScript type checking
+- `bun run check` - Alias for typecheck (shorter)
+
+### Type Safety
+
+This project is built with strict TypeScript for maximum type safety:
+
+```bash
+# Check for type errors
+bun run typecheck
+
+# The codebase passes strict TypeScript compilation with:
+# - strict mode enabled
+# - noUncheckedIndexedAccess
+# - noImplicitOverride
+# - noFallthroughCasesInSwitch
+```
 
 ## Order Logging
 
