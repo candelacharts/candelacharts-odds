@@ -41,6 +41,14 @@ export const CONFIG = {
 	macdSlow: 26,
 	macdSignal: 9,
 
+	// Strategy Configuration
+	strategy: {
+		// Trading strategy: 'arbitrage' or 'technical'
+		// arbitrage: Only trades on risk-free arbitrage opportunities (YES + NO < $1.00)
+		// technical: Trades based on technical analysis indicators
+		mode: (process.env.STRATEGY || "arbitrage").toLowerCase() as "arbitrage" | "technical",
+	},
+
 	// Trading Configuration
 	trading: {
 		// Auto-close profit target (in dollars)
@@ -48,11 +56,53 @@ export const CONFIG = {
 		// Default: $20 (configurable via PROFIT_TARGET_USD env var)
 		profitTargetUsd: Number.parseFloat(process.env.PROFIT_TARGET_USD || "20"),
 
-		// Maximum number of arbitrage positions per candle period
+		// Maximum number of positions per candle period (strategy-specific)
 		// For 15-min markets: limits positions per 15-minute period
 		// For hourly markets: limits positions per 1-hour period
-		// Default: 3 (configurable via MAX_POSITIONS_PER_15MIN env var)
-		maxPositionsPer15Min: Number.parseInt(process.env.MAX_POSITIONS_PER_15MIN || "3", 10),
+		
+		// Arbitrage: Default 3 (configurable via MAX_ARBITRAGE_POSITIONS env var)
+		maxArbitragePositions: Number.parseInt(process.env.MAX_ARBITRAGE_POSITIONS || "3", 10),
+		
+		// Technical: Default 1 (configurable via MAX_TECHNICAL_POSITIONS env var)
+		maxTechnicalPositions: Number.parseInt(process.env.MAX_TECHNICAL_POSITIONS || "1", 10),
+
+		// Auto-clear stale positions after X minutes
+		// Positions older than this will be automatically removed from tracking
+		// Default: 15 minutes (configurable via AUTO_CLEAR_MINUTES env var)
+		autoClearMinutes: Number.parseInt(process.env.AUTO_CLEAR_MINUTES || "15", 10),
+
+		// Strike cross gap threshold (percentage)
+		// Price must cross strike by this percentage to trigger a trade signal
+		// Default: 0.015% (configurable via STRIKE_GAP_PERCENT env var)
+		// Examples: 0.010 (0.010%), 0.015 (0.015%), 0.020 (0.020%)
+		strikeGapPercent: Number.parseFloat(process.env.STRIKE_GAP_PERCENT || "0.015"),
+
+		// Standard deviation levels for volatility-based exits
+		// These define different sensitivity levels for taking profit
+		// Values are in percentage (e.g., 0.050 = 0.050% = 0.5 standard deviations)
+		stdevLevels: {
+			// 1 standard deviation (~68% of moves) - Most common, quick exits
+			stdev1: Number.parseFloat(process.env.STDEV_1_PERCENT || "0.050"),
+			
+			// 2 standard deviations (~95% of moves) - Moderate moves
+			stdev2: Number.parseFloat(process.env.STDEV_2_PERCENT || "0.100"),
+			
+			// 3 standard deviations (~99.7% of moves) - Large moves
+			stdev3: Number.parseFloat(process.env.STDEV_3_PERCENT || "0.150"),
+			
+			// 4 standard deviations (~99.99% of moves) - Very rare, extreme moves
+			stdev4: Number.parseFloat(process.env.STDEV_4_PERCENT || "0.200"),
+		},
+
+		// Maximum retry attempts for failed orders per candle
+		// If order fails, bot will retry up to this many times before giving up
+		// Default: 5 (configurable via MAX_ORDER_RETRIES env var)
+		maxOrderRetries: Number.parseInt(process.env.MAX_ORDER_RETRIES || "5", 10),
+
+		// Minimum time remaining before market close (in minutes)
+		// Orders will not be placed if less than this time remains
+		// Default: 5 minutes (configurable via MIN_TIME_TO_EXPIRY_MIN env var)
+		minTimeToExpiryMin: Number.parseFloat(process.env.MIN_TIME_TO_EXPIRY_MIN || "5"),
 	},
 
 	kalshi: {

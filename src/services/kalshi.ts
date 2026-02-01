@@ -133,22 +133,61 @@ class KalshiService {
 		type: "market" | "limit";
 		yesPrice?: number;
 		noPrice?: number;
+		yesPriceDollars?: string;
+		noPriceDollars?: string;
 		expirationTs?: number;
 		sellPositionFloor?: number;
 		buyMaxCost?: number;
 	}) {
-		const response = await this.orders.createOrder({
+		// Build order request - only include parameters that have values
+		// Kalshi rejects orders with undefined/null price parameters
+		type OrderRequest = {
+			ticker: string;
+			action: "buy" | "sell";
+			side: "yes" | "no";
+			count: number;
+			type: "market" | "limit";
+			yes_price?: number;
+			no_price?: number;
+			yes_price_dollars?: string;
+			no_price_dollars?: string;
+			expiration_ts?: number;
+			sell_position_floor?: number;
+			buy_max_cost?: number;
+		};
+
+		const orderRequest: OrderRequest = {
 			ticker: params.ticker,
 			action: params.action,
 			side: params.side,
 			count: params.count,
 			type: params.type,
-			yes_price: params.yesPrice,
-			no_price: params.noPrice,
-			expiration_ts: params.expirationTs,
-			sell_position_floor: params.sellPositionFloor,
-			buy_max_cost: params.buyMaxCost,
-		});
+		};
+
+		// Only include optional parameters if they have values
+		if (params.yesPrice !== undefined && params.yesPrice !== null) {
+			orderRequest.yes_price = params.yesPrice;
+		}
+		if (params.noPrice !== undefined && params.noPrice !== null) {
+			orderRequest.no_price = params.noPrice;
+		}
+		if (params.yesPriceDollars !== undefined && params.yesPriceDollars !== null) {
+			orderRequest.yes_price_dollars = params.yesPriceDollars;
+		}
+		if (params.noPriceDollars !== undefined && params.noPriceDollars !== null) {
+			orderRequest.no_price_dollars = params.noPriceDollars;
+		}
+		if (params.expirationTs !== undefined && params.expirationTs !== null) {
+			orderRequest.expiration_ts = params.expirationTs;
+		}
+		if (params.sellPositionFloor !== undefined && params.sellPositionFloor !== null) {
+			orderRequest.sell_position_floor = params.sellPositionFloor;
+		}
+		if (params.buyMaxCost !== undefined && params.buyMaxCost !== null) {
+			orderRequest.buy_max_cost = params.buyMaxCost;
+		}
+
+		const response = await this.orders.createOrder(orderRequest);
 		return response.data.order;
 	}
 }

@@ -10,6 +10,31 @@ interface MarketSnapshot {
 	btcPrice: number;
 	timeLeftMin: number;
 	marketClose: string;
+	strikePrice?: number; // Kalshi strike price (e.g., $106.30 for ETH)
+}
+
+interface TechnicalIndicators {
+	// Core indicators (6 reliable ones only)
+	rsi?: number;
+	macd?: {
+		macd: number;
+		signal: number;
+		hist: number;
+		histDelta: number | null;
+	};
+	vwap?: number;
+	delta?: {
+		delta1: number;
+		delta3: number;
+		deltaPercent1: number;
+		deltaPercent3: number;
+	};
+	adx?: {
+		adx: number;
+		pdi: number;
+		mdi: number;
+	};
+	binancePrice?: number;
 }
 
 interface OrderbookData {
@@ -41,6 +66,8 @@ interface DisplayData {
 	orderbook: OrderbookData;
 	strategies: StrategySignal[];
 	decision: FinalDecision;
+	technicals?: TechnicalIndicators;
+	strategyMode?: "arbitrage" | "technical";
 }
 
 const COLORS = {
@@ -133,10 +160,14 @@ export function displayStrategyAnalysis(data: DisplayData): void {
 	console.log(""); // Blank line 2
 	console.log(colorize("MARKET OVERVIEW", COLORS.bright + COLORS.white));
 	console.log(colorize(separator("─", WIDTH), COLORS.dim));
+	
+	const labelWidth = 18;
+	
 	console.log(
 		row(
 			`${assetName} Price`,
 			colorize(formatPrice(data.market.btcPrice), COLORS.bright + COLORS.white),
+			labelWidth,
 		),
 	);
 	console.log(
@@ -150,9 +181,10 @@ export function displayStrategyAnalysis(data: DisplayData): void {
 						? COLORS.yellow
 						: COLORS.green,
 			),
+			labelWidth,
 		),
 	);
-	console.log(row("Closes At", data.market.marketClose));
+	console.log(row("Closes At", data.market.marketClose, labelWidth));
 
 	// Show YES and NO ask prices on one row
 	const yesAskCents = data.orderbook.yesPrice
@@ -180,168 +212,387 @@ export function displayStrategyAnalysis(data: DisplayData): void {
 					? COLORS.yellow
 					: COLORS.red;
 		const totalText = colorize(`(Total: ${totalCents}¢)`, totalColor);
-		console.log(row("Asks", `${yesAskText}  |  ${noAskText}  ${totalText}`));
+		console.log(row("Asks", `${yesAskText}  |  ${noAskText}  ${totalText}`, labelWidth));
 	} else {
 		console.log(
 			row(
 				"Asks",
 				`${yesAskText}  |  ${noAskText}  ${colorize("(No liquidity)", COLORS.dim)}`,
+				labelWidth,
 			),
 		);
 	}
 
 	console.log();
 
-	// Orderbook Analysis
-	console.log(""); // Blank line 1
-	console.log(""); // Blank line 2
-	console.log(colorize("ORDERBOOK ANALYSIS", COLORS.bright + COLORS.white));
-	console.log(colorize(separator("─", WIDTH), COLORS.dim));
+	// Technical Indicators Section (if available)
+	if (data.technicals) {
+		console.log(""); // Blank line 1
+		console.log(""); // Blank line 2
+		console.log(colorize("TECHNICAL ANALYSIS", COLORS.bright + COLORS.white));
+		console.log(colorize(separator("─", WIDTH), COLORS.dim));
 
-	const { orderbook } = data;
-	const labelWidth = 18;
-	const valueWidth = 20;
-	const gap = "        "; // 8 spaces between columns
+		const tech = data.technicals;
+		const labelWidth = 18;
 
-	// Helper to create two-column row
-	const twoCol = (
-		label1: string,
-		value1: string,
-		label2: string,
-		value2: string,
-	) => {
-		return (
-			pad(label1, labelWidth) +
-			pad(value1, valueWidth) +
-			gap +
-			pad(label2, labelWidth) +
-			value2
-		);
-	};
+		// TA Predict (Polymarket style)
+		let taPredict = "";
+		let taPredictColor = COLORS.yellow;
+		if (tech.macd && tech.rsi !== undefined) {
+			const macdBullish = tech.macd.hist > 0;
+			const rsiBullish = tech.rsi > 50;
+			const bullishCount = (macdBullish ? 1 : 0) + (rsiBullish ? 1 : 0);
+			const bearishCount = 2 - bullishCount;
 
-	// Best Prices
-	console.log(
-		twoCol(
-			"Best YES",
-			colorize(
-				orderbook.yesPrice !== null
-					? formatPercent(orderbook.yesPrice * 100, 1)
-					: "N/A",
-				COLORS.green,
-			),
-			"Best NO",
-			colorize(
-				orderbook.noPrice !== null
-					? formatPercent(orderbook.noPrice * 100, 1)
-					: "N/A",
-				COLORS.red,
-			),
-		),
-	);
+			if (bullishCount > bearishCount) {
+				taPredict = `LONG ${Math.round((bullishCount / 2) * 100)}%`;
+				taPredictColor = COLORS.green;
+			} else if (bearishCount > bullishCount) {
+				taPredict = `SHORT ${Math.round((bearishCount / 2) * 100)}%`;
+				taPredictColor = COLORS.red;
+			} else {
+				taPredict = "NEUTRAL 50%";
+			}
+		}
 
-	// Price to Beat (breakeven after fees)
-	if (
-		orderbook.priceToBeatYes !== undefined &&
-		orderbook.priceToBeatNo !== undefined
-	) {
-		console.log(
-			twoCol(
-				"Price to Beat YES",
-				colorize(
-					formatPercent(orderbook.priceToBeatYes * 100, 1),
-					COLORS.yellow,
+		// RSI & Direction (TA Predict) - Combined
+		if (tech.rsi !== undefined) {
+			const rsiColor =
+				tech.rsi > 70
+					? COLORS.red
+					: tech.rsi < 30
+						? COLORS.green
+						: COLORS.yellow;
+			const rsiValue = `${formatNumber(tech.rsi, 1)} ${tech.rsi > 70 ? "⚠" : tech.rsi < 30 ? "⚠" : ""}`;
+
+			console.log(
+				row(
+					"RSI:",
+					colorize(rsiValue, rsiColor) + " " + colorize(`(${taPredict})`, taPredictColor),
+					labelWidth,
 				),
-				"Price to Beat NO",
-				colorize(
-					formatPercent(orderbook.priceToBeatNo * 100, 1),
-					COLORS.yellow,
+			);
+		}
+
+		// MACD
+		if (tech.macd) {
+			console.log(
+				row(
+					"MACD:",
+					colorize(
+						tech.macd.hist > 0 ? "bullish" : "bearish",
+						tech.macd.hist > 0 ? COLORS.green : COLORS.red,
+					),
+					labelWidth,
 				),
-			),
-		);
+			);
+		}
+
+		// Delta 1/3 (Price Delta)
+		if (tech.delta) {
+			const delta1Color = tech.delta.delta1 > 0 ? COLORS.green : COLORS.red;
+			const delta3Color = tech.delta.delta3 > 0 ? COLORS.green : COLORS.red;
+			const deltaValue = 
+				colorize(`$${tech.delta.delta1 > 0 ? "+" : ""}${formatNumber(tech.delta.delta1, 2)}`, delta1Color) +
+				", " +
+				colorize(`${tech.delta.deltaPercent1 > 0 ? "+" : ""}${formatNumber(tech.delta.deltaPercent1, 2)}%`, delta1Color) +
+				colorize(" | ", COLORS.dim) +
+				colorize(`$${tech.delta.delta3 > 0 ? "+" : ""}${formatNumber(tech.delta.delta3, 2)}`, delta3Color) +
+				", " +
+				colorize(`${tech.delta.deltaPercent3 > 0 ? "+" : ""}${formatNumber(tech.delta.deltaPercent3, 2)}%`, delta3Color);
+			
+			console.log(row("Delta 1/3:", deltaValue, labelWidth));
+		}
+
+		// ADX (Trend Strength - HARD REQUIREMENT)
+		if (tech.adx) {
+			const adxColor = 
+				tech.adx.adx >= 40 ? COLORS.green + COLORS.bright :
+				tech.adx.adx >= 25 ? COLORS.green : 
+				tech.adx.adx >= 22 ? COLORS.yellow : 
+				COLORS.red;
+			const trendDirection = tech.adx.pdi > tech.adx.mdi ? "bullish" : "bearish";
+			const trendColor = tech.adx.pdi > tech.adx.mdi ? COLORS.green : COLORS.red;
+			const diDiff = Math.abs(tech.adx.pdi - tech.adx.mdi);
+			const clarityText = diDiff >= 5 ? "CLEAR" : diDiff >= 3 ? "OK" : "WEAK";
+			const clarityColor = diDiff >= 5 ? COLORS.green : diDiff >= 3 ? COLORS.yellow : COLORS.red;
+			
+			console.log(
+				row(
+					"ADX (Filter):",
+					colorize(`${formatNumber(tech.adx.adx, 1)} (${trendDirection})`, adxColor) +
+					" - " +
+					colorize(`${clarityText} Δ${formatNumber(diDiff, 1)}`, clarityColor),
+					labelWidth,
+				),
+			);
+			console.log(
+				row(
+					"+DI / -DI:",
+					colorize(`${formatNumber(tech.adx.pdi, 1)} / ${formatNumber(tech.adx.mdi, 1)}`, trendColor),
+					labelWidth,
+				),
+			);
+		}
+
+		// VWAP (Institutional Signal)
+		if (tech.vwap !== undefined) {
+			const vwapDiff = data.market.btcPrice - tech.vwap;
+			const vwapDiffPct = (vwapDiff / tech.vwap) * 100;
+			const vwapColor = vwapDiff > 0 ? COLORS.green : COLORS.red;
+			const vwapPosition = vwapDiff > 0 ? "above" : "below";
+
+			console.log(
+				row(
+					"VWAP:",
+					colorize(
+						`${formatPrice(tech.vwap)} (${vwapPosition}, ${vwapDiff > 0 ? "+" : ""}${formatNumber(vwapDiffPct, 2)}%)`,
+						vwapColor,
+					),
+					labelWidth,
+				),
+			);
+		}
+
+		console.log();
 	}
 
-	// Weighted Prices (if available)
-	if (
-		orderbook.yesWeightedPrice !== undefined &&
-		orderbook.noWeightedPrice !== undefined
-	) {
+	// Orderbook Analysis (only show in arbitrage mode)
+	const strategyMode = data.strategyMode || "arbitrage";
+	
+	if (strategyMode === "arbitrage") {
+		console.log(""); // Blank line 1
+		console.log(""); // Blank line 2
+		console.log(colorize("ORDERBOOK ANALYSIS", COLORS.bright + COLORS.white));
+		console.log(colorize(separator("─", WIDTH), COLORS.dim));
+
+		const { orderbook } = data;
+		const labelWidth = 18;
+		const valueWidth = 20;
+		const gap = "        "; // 8 spaces between columns
+
+		// Helper to create two-column row
+		const twoCol = (
+			label1: string,
+			value1: string,
+			label2: string,
+			value2: string,
+		) => {
+			return (
+				pad(label1, labelWidth) +
+				pad(value1, valueWidth) +
+				gap +
+				pad(label2, labelWidth) +
+				value2
+			);
+		};
+
+		// Best Prices
 		console.log(
 			twoCol(
-				"VWAP YES",
-				colorize(formatPercent(orderbook.yesWeightedPrice, 1), COLORS.dim),
-				"VWAP NO",
-				colorize(formatPercent(orderbook.noWeightedPrice, 1), COLORS.dim),
+				"Best YES",
+				colorize(
+					orderbook.yesPrice !== null
+						? formatPercent(orderbook.yesPrice * 100, 1)
+						: "N/A",
+					COLORS.green,
+				),
+				"Best NO",
+				colorize(
+					orderbook.noPrice !== null
+						? formatPercent(orderbook.noPrice * 100, 1)
+						: "N/A",
+					COLORS.red,
+				),
 			),
 		);
+
+		// Price to Beat (breakeven after fees)
+		if (
+			orderbook.priceToBeatYes !== undefined &&
+			orderbook.priceToBeatNo !== undefined
+		) {
+			console.log(
+				twoCol(
+					"Price to Beat YES",
+					colorize(
+						formatPercent(orderbook.priceToBeatYes * 100, 1),
+						COLORS.yellow,
+					),
+					"Price to Beat NO",
+					colorize(
+						formatPercent(orderbook.priceToBeatNo * 100, 1),
+						COLORS.yellow,
+					),
+				),
+			);
+		}
+
+		// Weighted Prices (if available)
+		if (
+			orderbook.yesWeightedPrice !== undefined &&
+			orderbook.noWeightedPrice !== undefined
+		) {
+			console.log(
+				twoCol(
+					"VWAP YES",
+					colorize(formatPercent(orderbook.yesWeightedPrice, 1), COLORS.dim),
+					"VWAP NO",
+					colorize(formatPercent(orderbook.noWeightedPrice, 1), COLORS.dim),
+				),
+			);
+		}
+
+		// Spread & Quality
+		const spreadDisplay =
+			orderbook.spreadPct !== undefined
+				? `${formatNumber(orderbook.spread, 2)}¢ (${formatPercent(orderbook.spreadPct * 100, 1)})`
+				: `${formatNumber(orderbook.spread, 2)}¢`;
+
+		const qualityColor =
+			orderbook.execQuality === "excellent"
+				? COLORS.green
+				: orderbook.execQuality === "good"
+					? COLORS.cyan
+					: orderbook.execQuality === "fair"
+						? COLORS.yellow
+						: COLORS.red;
+
+		console.log(
+			twoCol(
+				"Spread",
+				spreadDisplay,
+				"Quality",
+				colorize(orderbook.execQuality.toUpperCase(), qualityColor),
+			),
+		);
+
+		// Liquidity
+		console.log(
+			twoCol(
+				"YES Volume",
+				colorize(formatNumber(orderbook.yesLiquidity, 0), COLORS.green),
+				"NO Volume",
+				colorize(formatNumber(orderbook.noLiquidity, 0), COLORS.red),
+			),
+		);
+
+		const totalLiquidity = orderbook.yesLiquidity + orderbook.noLiquidity;
+		console.log(
+			twoCol(
+				"Total Volume",
+				colorize(formatNumber(totalLiquidity, 0), COLORS.bright),
+				"Imbalance",
+				colorize(
+					`${formatNumber(orderbook.imbalance, 2)}x ${orderbook.imbalanceSide}`,
+					orderbook.imbalance > 2.5
+						? COLORS.green
+						: orderbook.imbalance < 0.4
+							? COLORS.red
+							: COLORS.yellow,
+				),
+			),
+		);
+
+		// Depth at Level 1
+		console.log(
+			twoCol(
+				"Depth L1 YES",
+				colorize(formatNumber(orderbook.depthL1Yes, 0), COLORS.dim),
+				"Depth L1 NO",
+				colorize(formatNumber(orderbook.depthL1No, 0), COLORS.dim),
+			),
+		);
+
+		console.log();
 	}
 
-	// Spread & Quality
-	const spreadDisplay =
-		orderbook.spreadPct !== undefined
-			? `${formatNumber(orderbook.spread, 2)}¢ (${formatPercent(orderbook.spreadPct * 100, 1)})`
-			: `${formatNumber(orderbook.spread, 2)}¢`;
+	// Technical Strategy Info (only in technical mode)
+	if (strategyMode === "technical") {
+		console.log(""); // Blank line 1
+		console.log(""); // Blank line 2
+		console.log(colorize("TRADING CONTEXT", COLORS.bright + COLORS.white));
+		console.log(colorize(separator("─", WIDTH), COLORS.dim));
 
-	const qualityColor =
-		orderbook.execQuality === "excellent"
-			? COLORS.green
-			: orderbook.execQuality === "good"
-				? COLORS.cyan
-				: orderbook.execQuality === "fair"
-					? COLORS.yellow
-					: COLORS.red;
+		const { orderbook } = data;
+		const labelWidth = 18;
 
-	console.log(
-		twoCol(
-			"Spread",
-			spreadDisplay,
-			"Quality",
-			colorize(orderbook.execQuality.toUpperCase(), qualityColor),
-		),
-	);
-
-	// Liquidity
-	console.log(
-		twoCol(
-			"YES Volume",
-			colorize(formatNumber(orderbook.yesLiquidity, 0), COLORS.green),
-			"NO Volume",
-			colorize(formatNumber(orderbook.noLiquidity, 0), COLORS.red),
-		),
-	);
-
-	const totalLiquidity = orderbook.yesLiquidity + orderbook.noLiquidity;
-	console.log(
-		twoCol(
-			"Total Volume",
-			colorize(formatNumber(totalLiquidity, 0), COLORS.bright),
-			"Imbalance",
-			colorize(
-				`${formatNumber(orderbook.imbalance, 2)}x ${orderbook.imbalanceSide}`,
-				orderbook.imbalance > 2.5
-					? COLORS.green
-					: orderbook.imbalance < 0.4
-						? COLORS.red
-						: COLORS.yellow,
+		// Current Binance Price
+		console.log(
+			row(
+				"Binance Price",
+				colorize(formatPrice(data.market.btcPrice), COLORS.bright + COLORS.white),
+				labelWidth,
 			),
-		),
-	);
+		);
 
-	// Depth at Level 1
-	console.log(
-		twoCol(
-			"Depth L1 YES",
-			colorize(formatNumber(orderbook.depthL1Yes, 0), COLORS.dim),
-			"Depth L1 NO",
-			colorize(formatNumber(orderbook.depthL1No, 0), COLORS.dim),
-		),
-	);
+		// TA Predict
+		if (data.technicals?.rsi !== undefined && data.technicals?.macd) {
+			const macdBullish = data.technicals.macd.hist > 0;
+			const rsiBullish = data.technicals.rsi > 50;
+			const bullishCount = (macdBullish ? 1 : 0) + (rsiBullish ? 1 : 0);
+			const bearishCount = 2 - bullishCount;
 
-	console.log();
+			let taPredict = "";
+			let taPredictColor = COLORS.yellow;
+			if (bullishCount > bearishCount) {
+				taPredict = `LONG ${Math.round((bullishCount / 2) * 100)}%`;
+				taPredictColor = COLORS.green;
+			} else if (bearishCount > bullishCount) {
+				taPredict = `SHORT ${Math.round((bearishCount / 2) * 100)}%`;
+				taPredictColor = COLORS.red;
+			} else {
+				taPredict = "NEUTRAL 50%";
+			}
+
+			console.log(
+				row(
+					"TA Predict",
+					colorize(taPredict, taPredictColor + COLORS.bright),
+					labelWidth,
+				),
+			);
+		}
+
+		// Price to Beat (Kalshi strike price - the threshold to cross)
+		if (data.market.strikePrice !== undefined) {
+			console.log(
+				row(
+					"Price to Beat",
+					colorize(formatPrice(data.market.strikePrice), COLORS.yellow + COLORS.bright),
+					labelWidth,
+				),
+			);
+		}
+
+		// Current Kalshi Probabilities
+		if (orderbook.yesPrice !== null && orderbook.noPrice !== null) {
+			console.log(
+				row(
+					"Kalshi YES Prob",
+					colorize(formatPercent(orderbook.yesPrice * 100, 1), COLORS.green),
+					labelWidth,
+				),
+			);
+			console.log(
+				row(
+					"Kalshi NO Prob",
+					colorize(formatPercent(orderbook.noPrice * 100, 1), COLORS.red),
+					labelWidth,
+				),
+			);
+		}
+
+		console.log();
+	}
 
 	// Strategy Signals
 	console.log(""); // Blank line 1
 	console.log(""); // Blank line 2
-	console.log(colorize("STRATEGY SIGNALS", COLORS.bright + COLORS.white));
+	
+	const strategyLabel = strategyMode === "arbitrage" ? "ARBITRAGE SIGNALS" : "TECHNICAL SIGNALS";
+	
+	console.log(colorize(strategyLabel, COLORS.bright + COLORS.white));
 	console.log(colorize(separator("─", WIDTH), COLORS.dim));
 
 	if (data.strategies.length === 0) {
@@ -378,13 +629,18 @@ export function displayStrategyAnalysis(data: DisplayData): void {
 	// Final Decision
 	console.log(""); // Blank line 1
 	console.log(""); // Blank line 2
+	
+	const modeLabel = strategyMode === "arbitrage" ? "[ARBITRAGE-ONLY MODE]" : "[TECHNICAL ANALYSIS MODE]";
+	const modeColor = strategyMode === "arbitrage" ? COLORS.cyan : COLORS.magenta;
+	
 	console.log(
 		colorize("DECISION", COLORS.bright + COLORS.white) +
-			colorize(" [ARBITRAGE-ONLY MODE]", COLORS.cyan),
+			colorize(` ${modeLabel}`, modeColor),
 	);
 	console.log(colorize(separator("─", WIDTH), COLORS.dim));
 
 	const { decision } = data;
+	const decisionLabelWidth = 18;
 	const actionColor =
 		decision.action === "BUY_YES"
 			? COLORS.bgGreen + COLORS.bright + COLORS.white
@@ -400,11 +656,11 @@ export function displayStrategyAnalysis(data: DisplayData): void {
 				: "⏸️  ";
 
 	console.log(
-		row("Action", actionIcon + colorize(` ${decision.action} `, actionColor)),
+		row("Action", actionIcon + colorize(` ${decision.action} `, actionColor), decisionLabelWidth),
 	);
-	console.log(row("Reason", decision.reason));
+	console.log(row("Reason", decision.reason, decisionLabelWidth));
 	if (decision.confidence !== undefined) {
-		console.log(row("Confidence", formatPercent(decision.confidence * 100, 0)));
+		console.log(row("Confidence", formatPercent(decision.confidence * 100, 0), decisionLabelWidth));
 	}
 
 	console.log();
@@ -451,6 +707,7 @@ export function displayStrategyAnalysis(data: DisplayData): void {
 	console.log(""); // Blank line 2
 	console.log(colorize("END OF ANALYSIS", COLORS.bright + COLORS.white));
 	console.log(colorize(separator("─", WIDTH), COLORS.dim));
+	console.log();
 	console.log();
 }
 

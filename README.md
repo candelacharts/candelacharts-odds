@@ -5,10 +5,16 @@ A high-performance arbitrage trading bot for Kalshi prediction markets, built wi
 ## Features
 
 - **Risk-Free Arbitrage**: Automatically detects and executes arbitrage opportunities when YES + NO prices don't equal $1.00
+- **Advanced Technical Strategy**: Cross-based signals with strike price awareness
+  - MACD, Price×VWAP, Price×Strike, Stochastic RSI, and RSI×50 crosses
+  - Strike distance confidence adjustment
+  - Volatility-based filtering
+  - Multi-indicator agreement required
 - **Multi-Asset Support**: Monitor multiple crypto assets simultaneously (BTC, ETH, SOL, XRP)
 - **Smart Position Management**: Auto-close positions when profit targets are reached
-- **Rate Limiting**: Configurable maximum positions per candle period
+- **Strategy-Specific Limits**: 1 position/candle (technical), 3 positions/candle (arbitrage)
 - **Comprehensive Logging**: All orders logged to CSV files for analysis
+- **Advanced Display**: Color-coded terminal interface with technical indicators and market analysis
 
 ## Quick Start
 
@@ -33,8 +39,10 @@ KALSHI_API_KEY_ID=your-api-key-id
 KALSHI_PRIVATE_KEY_PATH=./keys/kalshi-private-key.pem
 KALSHI_BASE_PATH=https://api.elections.kalshi.com/trade-api/v2
 KALSHI_SERIES_TICKERS=KXBTC15M
+STRATEGY=arbitrage
 PROFIT_TARGET_USD=20
-MAX_POSITIONS_PER_15MIN=3
+MAX_ARBITRAGE_POSITIONS=3
+MAX_TECHNICAL_POSITIONS=1
 ```
 
 **Important**: Place your Kalshi private key file in the `keys/` directory. The bot will validate:
@@ -149,7 +157,77 @@ KALSHI_SERIES_TICKERS=KXBTC15M,KXETH15M,KXSOL15M,KXBTCD,KXETHD,KXSOLD,KXXRPD
 ### Trading Parameters
 
 - `PROFIT_TARGET_USD`: Auto-close positions when either side reaches this profit (default: $20)
-- `MAX_POSITIONS_PER_15MIN`: Maximum positions per candle period (default: 3)
+- `MAX_ARBITRAGE_POSITIONS`: Maximum arbitrage positions per candle period (default: 3)
+- `MAX_TECHNICAL_POSITIONS`: Maximum technical positions per candle period (default: 1)
+- `AUTO_CLEAR_MINUTES`: Automatically clear positions older than X minutes (default: 15)
+- `STRIKE_GAP_PERCENT`: Strike cross gap threshold in percentage (default: 0.015)
+
+#### Standard Deviation Exit Levels
+
+Control when to take profit based on price movement magnitude:
+
+- `STDEV_1_PERCENT`: 1σ level - Quick exits on common moves (default: 0.050%)
+- `STDEV_2_PERCENT`: 2σ level - Moderate moves (default: 0.100%)
+- `STDEV_3_PERCENT`: 3σ level - Large moves (default: 0.150%)
+- `STDEV_4_PERCENT`: 4σ level - Extreme rare moves (default: 0.200%)
+
+## Trading Strategies
+
+### Arbitrage Strategy (STRATEGY=arbitrage)
+
+**Risk-Free Trading**: Exploits pricing inefficiencies when YES + NO ask prices don't equal $1.00.
+
+**Example:**
+- YES ask: 36¢, NO ask: 4¢
+- Total cost: 40¢ (+ ~0.6¢ fees)
+- Payout: $1.00 at expiry
+- **Guaranteed profit: 59.4¢** 💰
+
+**Characteristics:**
+- Zero directional risk (buy both sides)
+- Rare opportunities (markets are usually efficient)
+- Max 3 positions per candle
+- Immediate execution when detected
+
+### Technical Strategy (STRATEGY=technical)
+
+**Cross-Based Momentum Trading**: Uses technical indicator crosses with strike price awareness.
+
+**Core Signals:**
+1. **Price × Strike Cross** ⭐ (highest priority - determines payout)
+2. **MACD Cross** 🔥 (momentum shift)
+3. **Price × VWAP Cross** 🔥 (institutional signal)
+4. **Stochastic RSI Cross** (momentum oscillator)
+5. **RSI × 50 Cross** (momentum shift)
+
+**Filters:**
+- **Strike Distance**: Adjusts confidence based on distance to strike
+- **Volatility**: Standard deviation check (needs movement)
+- **Time**: > 5 minutes until expiry
+- **Signal Agreement**: Requires 2+ more signals in one direction
+
+**Example Trade:**
+```
+Market: BTC $106,250, Strike $106,300 (0.05% below)
+Signals:
+  🔥 MACD bullish cross (5 pts)
+  🔥 Price crossed above VWAP (5 pts)
+  ✓ RSI crossed above 50 (4 pts)
+  ✓ Heiken Ashi green x3 (3 pts)
+  ✓ PSAR uptrend (2 pts)
+  
+Total: 19 points, 5 bullish signals
+Confidence: 85% (high)
+→ BUY YES (bet on crossing above strike)
+```
+
+**Characteristics:**
+- Directional risk (single side)
+- More frequent opportunities
+- Max 1 position per candle (conservative)
+- Requires strong signal agreement (70%+ confidence)
+
+**See [TECHNICAL_STRATEGY.md](TECHNICAL_STRATEGY.md) for detailed documentation.**
 
 ## How It Works
 
@@ -168,11 +246,52 @@ The bot monitors Kalshi orderbooks for arbitrage opportunities:
 - Payout: $1.00
 - **Profit: $0.59 (risk-free)**
 
+### Technical Analysis
+
+The bot displays real-time technical indicators to help understand market conditions:
+
+#### TA Predict
+- Combines RSI and MACD signals to show overall market direction
+- **LONG**: Bullish indicators (green)
+- **SHORT**: Bearish indicators (red)
+- **NEUTRAL**: Mixed signals (yellow)
+
+#### RSI (Relative Strength Index)
+- Measures momentum and overbought/oversold conditions
+- **> 70**: Overbought (⚠ warning)
+- **< 30**: Oversold (⚠ warning)
+- **40-60**: Neutral range
+
+#### MACD (Moving Average Convergence Divergence)
+- Shows trend direction and momentum
+- **Bullish**: Histogram > 0 (green)
+- **Bearish**: Histogram < 0 (red)
+- **Delta 1/3**: Shows MACD line and histogram values with change
+
+#### Heiken Ashi
+- Smoothed candlesticks that filter noise
+- Shows consecutive candle color (green/red) and count
+- **Green x3+**: Strong uptrend
+- **Red x3+**: Strong downtrend
+
+#### VWAP (Volume Weighted Average Price)
+- Average price weighted by volume
+- Shows price difference from VWAP and slope direction
+- **Price > VWAP**: Trading above average (bullish)
+- **Price < VWAP**: Trading below average (bearish)
+- **Slope ↗/↘**: VWAP trend direction
+
 ### Position Management
 
-- **Entry**: Only executes when total cost < $1.00 (after fees)
+- **Entry**: Only executes when total cost < $1.00 (after fees) for arbitrage, or based on technical signals
 - **Exit**: Auto-closes when profit target reached or at market expiry
-- **Rate Limiting**: Respects max positions per candle to manage risk
+- **Rate Limiting**: Strategy-specific limits per candle period
+  - Arbitrage: Max 3 positions per candle (low-risk, multiple positions allowed)
+  - Technical: Max 1 position per candle (higher-risk, conservative approach)
+- **Auto-Cleanup**: Automatically clears stale positions after 15 minutes (configurable)
+  - Removes closed positions from tracking
+  - Cleans up expired market positions
+  - Runs automatically on every strategy cycle
 
 ## Project Structure
 
@@ -204,6 +323,10 @@ bun run dev
 - `bun run strategy` - Run the arbitrage strategy
 - `bun run typecheck` - Run TypeScript type checking
 - `bun run check` - Alias for typecheck (shorter)
+- `bun run scripts/clear-positions.ts` - View and manage position tracking
+  - No args: View current positions
+  - `clear`: Clear all positions from tracking
+  - `clear-ticker TICKER`: Clear specific position
 
 ### Type Safety
 
@@ -286,6 +409,15 @@ wc -l tickers/*.csv
 - Bun 1.0+
 - Kalshi API credentials
 - Sufficient account balance for trading
+
+## Documentation
+
+- **[QUICK_REFERENCE.md](./QUICK_REFERENCE.md)** - Quick reference card for technical indicators ⚡
+- **[TECHNICAL_INDICATORS.md](./TECHNICAL_INDICATORS.md)** - Complete guide to all technical indicators
+- **[DISPLAY_EXAMPLE.md](./DISPLAY_EXAMPLE.md)** - Visual examples of the console display
+- **[ARBITRAGE_STRATEGY.md](./ARBITRAGE_STRATEGY.md)** - How the arbitrage strategy works
+- **[SETUP.md](./SETUP.md)** - Detailed setup instructions
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and changes
 
 ## License
 

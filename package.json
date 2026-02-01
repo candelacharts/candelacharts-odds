@@ -12,11 +12,11 @@
     "start": "bun run src/index.ts",
     "dev": "bun --watch src/index.ts",
     "strategy": "bun run src/strategies/strategy.ts",
-    "typecheck": "tsc --noEmit",
-    "check": "tsc --noEmit"
+    "typecheck": "tsc --noEmit"
   },
   "type": "module",
   "dependencies": {
-    "kalshi-typescript": "3.5.0"
+    "kalshi-typescript": "3.5.0",
+    "technicalindicators": "^3.1.0"
   }
 }
